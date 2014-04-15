@@ -5,7 +5,7 @@ It parses all messages according to a list of regular expressions.
 Regex lists are stored in /etc/gosyslogd. The filename must be the same
 as the syslog tag. Only tags which have a regex list are monitored.
 
-Unmatches messages are published to a Redis channel "logging" and stored
+Unmatched messages are published to a Redis channel "logging" and stored
 in a PostgreSQL database in a table called "log_YYYYMM".
 
 Matched messages are stored in a Mongo DB capped collection. The name

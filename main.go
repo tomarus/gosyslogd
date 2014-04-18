@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./config"
 	"./parser"
 	"./syslogd"
 	"database/sql"
@@ -98,7 +99,7 @@ func (m *moo) Dial(addr string) (err error) {
 		return err
 	}
 	m.mongo.SetMode(mgo.Strong, true)
-	m.db = m.mongo.DB("logsurfer")
+	m.db = m.mongo.DB(config.C.MongoColl)
 	return nil
 }
 
@@ -107,26 +108,32 @@ func (m *moo) Dial(addr string) (err error) {
 func main() {
 	var err error
 
+	// Load config.
+	err = config.NewConfig()
+	if err != nil {
+		panic(err)
+	}
+
 	// Load logsurfer filtering rules.
-	parse, err = parser.New("/etc/gosyslogd")
+	parse, err = parser.New(config.C.RulesDir)
 	if err != nil {
 		panic(err)
 	}
 
 	// Connect to Redis.
-	rdb, err = redis.Dial("tcp", "localhost:6379")
+	rdb, err = redis.Dial("tcp", config.C.Redis)
 	if err != nil {
 		panic(err)
 	}
 
 	// Connect to PostgreSQL.
-	err = psql.Dial("user=news dbname=greenlog sslmode=disable")
+	err = psql.Dial(config.C.Postgres)
 	if err != nil {
 		panic(err)
 	}
 
 	// Connect to MongoDB.
-	err = mongo.Dial("localhost")
+	err = mongo.Dial(config.C.MongoHost)
 	if err != nil {
 		panic(err)
 	}

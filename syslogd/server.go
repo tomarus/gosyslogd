@@ -1,13 +1,11 @@
 package syslogd
 
 import (
+	"../config"
 	"bufio"
 	"net"
 	"os"
 )
-
-const unix_path string = "/dev/log"
-const sock_addr string = ":514"
 
 type Server struct {
 	tcp  *net.TCPConn
@@ -19,7 +17,7 @@ type Server struct {
 }
 
 func (s *Server) listenUDP() error {
-	a, err := net.ResolveUDPAddr("udp", sock_addr)
+	a, err := net.ResolveUDPAddr("udp", config.C.SockAddr)
 	if err != nil {
 		return err
 	}
@@ -32,8 +30,8 @@ func (s *Server) listenUDP() error {
 }
 
 func (s *Server) listenUnix() error {
-	os.Remove(unix_path)
-	a, err := net.ResolveUnixAddr("unixgram", unix_path)
+	os.Remove(config.C.UnixPath)
+	a, err := net.ResolveUnixAddr("unixgram", config.C.UnixPath)
 	if err != nil {
 		return err
 	}
@@ -41,7 +39,7 @@ func (s *Server) listenUnix() error {
 	if err != nil {
 		return err
 	}
-	err = os.Chmod(unix_path, 0666)
+	err = os.Chmod(config.C.UnixPath, 0666)
 	if err != nil {
 		return err
 	}
@@ -50,7 +48,7 @@ func (s *Server) listenUnix() error {
 }
 
 func (s *Server) listenTCP() error {
-	sock, err := net.Listen("tcp", sock_addr)
+	sock, err := net.Listen("tcp", config.C.SockAddr)
 	if err != nil {
 		return err
 	}

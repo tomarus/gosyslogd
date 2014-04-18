@@ -2,6 +2,7 @@ package syslogd
 
 import (
 	"bufio"
+	"../config"
 	"fmt"
 	"os"
 	"os/signal"
@@ -10,8 +11,6 @@ import (
 	"syscall"
 	"time"
 )
-
-const logpath = "/var/log/syslogd"
 
 type archfile struct {
 	buf  *bufio.Writer
@@ -87,9 +86,9 @@ func (a *archive) syncer() {
 
 func (a *archive) write(m *Message) {
 	// XXX make configurable.
-	//fn := fmt.Sprintf("%s/%s.%s.log", logpath, m.Facility(), m.Severity())
-	//fn := fmt.Sprintf("%s/%04d/%02d/%02d/%s/%s.%s.log", logpath, time.Now().Year(), time.Now().Month(), time.Now().Day(), m.Hostname, m.Facility(), m.Severity())
-	fn := fmt.Sprintf("%s/%04d/%02d/%02d/%s.log", logpath, time.Now().Year(), time.Now().Month(), time.Now().Day(), m.Hostname)
+	//fn := fmt.Sprintf("%s/%s.%s.log", config.C.LogDir, m.Facility(), m.Severity())
+	//fn := fmt.Sprintf("%s/%04d/%02d/%02d/%s/%s.%s.log", config.C.LogDir, time.Now().Year(), time.Now().Month(), time.Now().Day(), m.Hostname, m.Facility(), m.Severity())
+	fn := fmt.Sprintf("%s/%04d/%02d/%02d/%s.log", config.C.LogDir, time.Now().Year(), time.Now().Month(), time.Now().Day(), m.Hostname)
 
 	if _, x := a.files[fn]; !x {
 		os.MkdirAll(path.Dir(fn), 0755)

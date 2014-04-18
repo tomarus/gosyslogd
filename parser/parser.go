@@ -22,6 +22,8 @@ type tagParser struct {
 	entryarr  logEntries
 	totchecks int64
 	Tag       string
+	filename  string
+	lastmod   time.Time
 }
 
 type logEntries []*Logent
@@ -58,7 +60,32 @@ func New(path string) (*Parser, error) {
 	}
 
 	t0 = time.Now()
+
+	go p.reloader()
 	return p, nil
+}
+
+func (p *Parser) reloader() {
+	for {
+		time.Sleep(time.Second * 10)
+
+		for _, tp := range p.tagmap {
+			fi, err := os.Stat(tp.filename)
+			if err != nil {
+				panic(err)
+			}
+
+			if fi.ModTime().After(tp.lastmod) {
+				newtp, err := p.newTagParser(tp.filename)
+				if err != nil {
+					panic(err)
+				}
+				newtp.Tag = tp.Tag
+				p.tagmap[tp.Tag] = newtp
+				fmt.Printf("Reloaded watched tag \"%s\" using %d entries.\n", tp.Tag, len(newtp.entryarr))
+			}
+		}
+	}
 }
 
 func (p *Parser) newTagParser(fn string) (*tagParser, error) {
@@ -66,9 +93,17 @@ func (p *Parser) newTagParser(fn string) (*tagParser, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 
 	tp := new(tagParser)
 	tp.entrymap = make(map[string]*Logent)
+	tp.filename = fn
+
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	tp.lastmod = fi.ModTime()
 
 	s := bufio.NewScanner(f)
 	i := 0

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/moovweb/rubex"
 	"log/syslog"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,9 +25,15 @@ type Message struct {
 
 var sysfmt *rubex.Regexp
 var mu sync.Mutex
+var hostname string
 
 func init() {
 	sysfmt = rubex.MustCompile("<([0-9]+)>(.{15}|.{25}) (.*?): (.*)")
+	h, err := os.Hostname()
+	if err != nil {
+		panic(err)
+	}
+	hostname = h
 }
 
 func NewMessage(pkt []byte, size int) *Message {
@@ -53,7 +60,7 @@ func NewMessage(pkt []byte, size int) *Message {
 		msg.Hostname = string(a[0])
 		tagpid = string(a[1])
 	} else {
-		msg.Hostname = "localhost"
+		msg.Hostname = hostname
 		tagpid = string(a[0])
 	}
 

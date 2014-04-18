@@ -147,8 +147,9 @@ func sysloop() {
 	for {
 		m := sys.Next()
 		if m == nil {
-			fmt.Printf("No more messages.")
-			break
+			fmt.Printf("No more messages, exiting.\n")
+			sys.Close()
+			os.Exit(-1)
 		}
 
 		if !parse.HasTag(m.Tag) {

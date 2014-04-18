@@ -119,12 +119,12 @@ func (s *Server) Next() *Message {
 
 func (s *Server) Close() {
 	s.stop <- true
-	s.arch.close()
+	s.arch.CloseAll()
 }
 
 func NewServer() *Server {
 	s := new(Server)
-	s.bus = make(chan *Message)
+	s.bus = make(chan *Message, 128*1024)
 	s.stop = make(chan bool)
 	s.arch = NewArchive()
 

@@ -99,7 +99,7 @@ func (m *moo) Dial(addr string) (err error) {
 		return err
 	}
 	m.mongo.SetMode(mgo.Strong, true)
-	m.db = m.mongo.DB(config.C.MongoColl)
+	m.db = m.mongo.DB(config.C.MongoDB)
 	return nil
 }
 

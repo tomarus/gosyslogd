@@ -25,7 +25,7 @@ type config struct {
 	Redis     string `json:"redis"`
 	Postgres  string `json:"postgres"`
 	MongoHost string `json:"mongohost"`
-	MongoColl string `json:"mongocoll"`
+	MongoDB   string `json:"mongodb"`
 	HTTP      string `json:"http"`
 }
 

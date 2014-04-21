@@ -1,8 +1,8 @@
 package syslogd
 
 import (
-	"bufio"
 	"../config"
+	"bufio"
 	"fmt"
 	"os"
 	"os/signal"

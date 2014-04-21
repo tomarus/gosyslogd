@@ -138,6 +138,9 @@ func main() {
 		panic(err)
 	}
 
+	// Start HTTP server.
+	go Stats.HTTP()
+
 	// Start syslog server.
 	sys = syslogd.NewServer()
 	go sysloop()
@@ -158,6 +161,10 @@ func sysloop() {
 			sys.Close()
 			os.Exit(-1)
 		}
+
+		Stats.Tag(m.Tag)
+		Stats.Host(m.Hostname)
+		Stats.Priority(m.PriorityString())
 
 		if !parse.HasTag(m.Tag) {
 			continue

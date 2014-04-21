@@ -26,6 +26,7 @@ type config struct {
 	Postgres  string `json:"postgres"`
 	MongoHost string `json:"mongohost"`
 	MongoColl string `json:"mongocoll"`
+	HTTP      string `json:"http"`
 }
 
 var C config

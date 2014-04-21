@@ -105,3 +105,7 @@ func (m *Message) Severity() string {
 func (m *Message) Facility() string {
 	return facilities[m.Priority>>3]
 }
+
+func (m *Message) PriorityString() string {
+	return m.Facility() + "." + m.Severity()
+}

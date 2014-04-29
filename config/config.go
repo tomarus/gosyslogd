@@ -24,8 +24,6 @@ type config struct {
 	LogDir    string `json:"logdir"`
 	Redis     string `json:"redis"`
 	Postgres  string `json:"postgres"`
-	MongoHost string `json:"mongohost"`
-	MongoDB   string `json:"mongodb"`
 	HTTP      string `json:"http"`
 }
 

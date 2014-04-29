@@ -4,12 +4,14 @@ import (
 	"./config"
 	"./parser"
 	"./syslogd"
+	"crypto/md5"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	_ "github.com/lib/pq"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,6 +21,100 @@ import (
 var parse *parser.Parser
 var rdb redis.Conn
 var sys *syslogd.Server
+var cyc *cycbuf
+
+// Cycbuff storage. A cycbuf contains a map of cycfiles.
+// Each cycfile stores a fixed amount of log lines.
+
+// Store up to cycbuflen messages in a cycfile.
+const cycbuflen = 1024
+
+type cycfile struct {
+	msgs [cycbuflen]*syslogd.Message
+	ptr  int
+	loop bool
+}
+
+type cycbuf struct {
+	files map[string]*cycfile
+	sums  map[string]string
+}
+
+func (cf *cycfile) AddMsg(m *syslogd.Message) {
+	cf.msgs[cf.ptr] = m
+	cf.ptr++
+	if cf.ptr > cycbuflen-1 {
+		cf.ptr = 0
+		cf.loop = true
+	}
+}
+
+// Range returns a full range slice of X syslogd messages.
+func (cf *cycfile) Range() []*syslogd.Message {
+	s1 := cf.msgs[0:cf.ptr]
+	if cf.loop {
+		s2 := cf.msgs[cf.ptr+1 : len(cf.msgs)]
+		return append(s2, s1...)
+	}
+
+	return s1
+}
+
+func newCycbuf() *cycbuf {
+	c := new(cycbuf)
+	c.files = make(map[string]*cycfile)
+	c.sums = make(map[string]string)
+	return c
+}
+
+func (cb *cycbuf) AddString(str string, m *syslogd.Message) {
+	sum, x := cb.sums[str]
+	if !x {
+		h := md5.New()
+		io.WriteString(h, str)
+		cb.sums[str] = fmt.Sprintf("%x", h.Sum(nil))
+		sum = cb.sums[str]
+	}
+
+	cf, x := cb.files[sum]
+	if !x {
+		cb.files[sum] = new(cycfile)
+		cf = cb.files[sum]
+	}
+	cf.AddMsg(m)
+}
+
+func (cb *cycbuf) Add(sum string, m *syslogd.Message) {
+	cf, x := cb.files[sum]
+	if !x {
+		cb.files[sum] = new(cycfile)
+		cf = cb.files[sum]
+	}
+	cf.AddMsg(m)
+}
+
+// Call on program exit or signal.
+func (cb *cycbuf) Dump() {
+}
+
+// Call on program load.
+func (cb *cycbuf) Restore() {
+}
+
+func (cb *cycbuf) HttpLog(w http.ResponseWriter, r *http.Request) {
+	sum := r.FormValue("md5")
+	cf, x := cb.files[sum]
+	if !x {
+		http.NotFound(w, r)
+		return
+	}
+	lines := cf.Range()
+	b, err := json.Marshal(&lines)
+	if err != nil {
+		panic(err)
+	}
+	w.Write(b)
+}
 
 // PostgreSQL helper class
 
@@ -60,49 +156,6 @@ func (p *psqldb) AddUnhandled(md5, content string) (err error) {
 	return err
 }
 
-// MongoDB helper class
-
-type moo struct {
-	mongo *mgo.Session
-	db    *mgo.Database
-	cols  map[string]*mgo.Collection
-}
-
-var mongo moo
-
-func (m *moo) collection(md5 string) *mgo.Collection {
-	if coll, x := m.cols[md5]; x {
-		return coll
-	}
-
-	newcol := m.db.C(md5)
-	err := newcol.Create(&mgo.CollectionInfo{Capped: true, MaxBytes: 262144})
-	if err != nil {
-		panic(err)
-	}
-
-	m.cols[md5] = newcol
-	return newcol
-}
-
-func (m *moo) Add(md5, rawmsg string) {
-	col := m.collection(md5)
-	err := col.Insert(bson.M{"epoch": time.Now().Unix(), "msg": rawmsg})
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (m *moo) Dial(addr string) (err error) {
-	m.mongo, err = mgo.Dial(addr)
-	if err != nil {
-		return err
-	}
-	m.mongo.SetMode(mgo.Strong, true)
-	m.db = m.mongo.DB(config.C.MongoDB)
-	return nil
-}
-
 //
 
 func main() {
@@ -132,14 +185,14 @@ func main() {
 		panic(err)
 	}
 
-	// Connect to MongoDB.
-	err = mongo.Dial(config.C.MongoHost)
-	if err != nil {
-		panic(err)
-	}
+	// Initialize in memory cyclic buffer cache.
+	cyc = newCycbuf()
 
 	// Start HTTP server.
 	go Stats.HTTP()
+
+	// Add last-x log lines output
+	http.HandleFunc("/log", cyc.HttpLog)
 
 	// Start syslog server.
 	sys = syslogd.NewServer()
@@ -166,6 +219,12 @@ func sysloop() {
 		Stats.Host(m.Hostname)
 		Stats.Priority(m.PriorityString())
 
+		cyc.AddString(m.Tag, m)
+		cyc.AddString(m.Hostname, m)
+		cyc.AddString(m.PriorityString(), m)
+
+		// Parser & matching stuff
+
 		if !parse.HasTag(m.Tag) {
 			continue
 		}
@@ -175,8 +234,8 @@ func sysloop() {
 			if logent.Important > 1 {
 				psql.AddUnhandled(logent.Md5, m.Raw)
 				rdb.Do("PUBLISH", "critical", m.Raw)
-				mongo.Add(logent.Md5, m.Raw)
 			}
+			cyc.Add(logent.Md5, m)
 		} else {
 			// No match found.
 			psql.AddUnhandled("00000000000000000000000000000000", m.Raw)

@@ -132,10 +132,29 @@ func (p *psqldb) Dial(connstr string) (err error) {
 	}
 
 	p.tables()
+	go p.changeTables()
 	return nil
 }
 
-// XXX add a timer at first day of month 00:00 to change table name.
+func (p *psqldb) changeTables() {
+	ticker := p.updateTicker()
+	for {
+		<-ticker.C
+		p.tables()
+		ticker = p.updateTicker()
+	}
+}
+
+func (p *psqldb) updateTicker() *time.Ticker {
+	// Get current first day of month 00:00
+	nextTick := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.Local)
+ 	// Add 1 month
+	nextTick = nextTick.AddDate(0, 1, 0)
+
+	diff := nextTick.Sub(time.Now())
+	return time.NewTicker(diff)
+}
+
 func (p *psqldb) tables() {
 	tn := "log_" + time.Now().Format("200601")
 

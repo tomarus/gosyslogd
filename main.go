@@ -2,15 +2,13 @@ package main
 
 import (
 	"./config"
+	"./cycbuf"
 	"./parser"
 	"./syslogd"
-	"crypto/md5"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	_ "github.com/lib/pq"
-	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,102 +19,7 @@ import (
 var parse *parser.Parser
 var rdb redis.Conn
 var sys *syslogd.Server
-var cyc *cycbuf
-
-// Cycbuff storage. A cycbuf contains a map of cycfiles.
-// Each cycfile stores a fixed amount of log lines.
-
-// Store up to cycbuflen messages in a cycfile.
-const cycbuflen = 1024
-
-type cycfile struct {
-	msgs [cycbuflen]*syslogd.Message
-	ptr  int
-	loop bool
-}
-
-type cycbuf struct {
-	files map[string]*cycfile
-	sums  map[string]string
-}
-
-func (cf *cycfile) AddMsg(m *syslogd.Message) {
-	cf.msgs[cf.ptr] = m
-	cf.ptr++
-	if cf.ptr > cycbuflen-1 {
-		cf.ptr = 0
-		cf.loop = true
-	}
-}
-
-// Range returns a full range slice of X syslogd messages.
-func (cf *cycfile) Range() []*syslogd.Message {
-	s1 := cf.msgs[0:cf.ptr]
-	if cf.loop {
-		s2 := cf.msgs[cf.ptr+1 : len(cf.msgs)]
-		return append(s2, s1...)
-	}
-
-	return s1
-}
-
-func newCycbuf() *cycbuf {
-	c := new(cycbuf)
-	c.files = make(map[string]*cycfile)
-	c.sums = make(map[string]string)
-	return c
-}
-
-func (cb *cycbuf) AddString(str string, m *syslogd.Message) {
-	sum, x := cb.sums[str]
-	if !x {
-		h := md5.New()
-		io.WriteString(h, str)
-		cb.sums[str] = fmt.Sprintf("%x", h.Sum(nil))
-		sum = cb.sums[str]
-	}
-
-	cf, x := cb.files[sum]
-	if !x {
-		cb.files[sum] = new(cycfile)
-		cf = cb.files[sum]
-	}
-	cf.AddMsg(m)
-}
-
-func (cb *cycbuf) Add(sum string, m *syslogd.Message) {
-	cf, x := cb.files[sum]
-	if !x {
-		cb.files[sum] = new(cycfile)
-		cf = cb.files[sum]
-	}
-	cf.AddMsg(m)
-}
-
-// Call on program exit or signal.
-func (cb *cycbuf) Dump() {
-}
-
-// Call on program load.
-func (cb *cycbuf) Restore() {
-}
-
-func (cb *cycbuf) HttpLog(w http.ResponseWriter, r *http.Request) {
-	sum := r.FormValue("md5")
-	cf, x := cb.files[sum]
-	if !x {
-		http.NotFound(w, r)
-		return
-	}
-	lines := cf.Range()
-	b, err := json.Marshal(&lines)
-	if err != nil {
-		panic(err)
-	}
-	w.Write(b)
-}
-
-// PostgreSQL helper class
+var cyc *cycbuf.Cycbuf
 
 type psqldb struct {
 	db    *sql.DB
@@ -148,7 +51,7 @@ func (p *psqldb) changeTables() {
 func (p *psqldb) updateTicker() *time.Ticker {
 	// Get current first day of month 00:00
 	nextTick := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.Local)
- 	// Add 1 month
+	// Add 1 month
 	nextTick = nextTick.AddDate(0, 1, 0)
 
 	diff := nextTick.Sub(time.Now())
@@ -205,7 +108,7 @@ func main() {
 	}
 
 	// Initialize in memory cyclic buffer cache.
-	cyc = newCycbuf()
+	cyc = cycbuf.New()
 
 	// Start HTTP server.
 	go Stats.HTTP()
@@ -258,6 +161,7 @@ func sysloop() {
 		} else {
 			// No match found.
 			psql.AddUnhandled("00000000000000000000000000000000", m.Raw)
+			cyc.Add("00000000000000000000000000000000", m)
 			rdb.Do("PUBLISH", "logging", m.Raw)
 		}
 	}

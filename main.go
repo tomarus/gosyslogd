@@ -5,6 +5,7 @@ import (
 	"./cycbuf"
 	"./parser"
 	"./syslogd"
+	"code.google.com/p/go.net/websocket"
 	"database/sql"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
@@ -115,6 +116,7 @@ func main() {
 
 	// Add last-x log lines output
 	http.HandleFunc("/log", cyc.HttpLog)
+	http.Handle("/stream", websocket.Handler(cyc.HttpStream))
 
 	// Start syslog server.
 	sys = syslogd.NewServer()

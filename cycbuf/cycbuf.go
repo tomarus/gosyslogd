@@ -78,13 +78,8 @@ func (cf *cycfile) Last(max int) []*syslogd.Message {
 }
 
 func (cf *cycfile) publish(m *syslogd.Message) {
-	for ws, ch := range cf.subs {
-		select {
-		case ch <- m:
-		default:
-			cf.Unsubscribe(ws)
-			close(ch)
-		}
+	for _, ch := range cf.subs {
+		ch <- m
 	}
 }
 
@@ -177,8 +172,10 @@ func (cb *Cycbuf) HttpStream(ws *websocket.Conn) {
 		return
 	}
 
-	ch := make(chan *syslogd.Message, 1)
+	ch := make(chan *syslogd.Message, 1024)
 	cf.Subscribe(ws, ch)
+	defer close(ch)
+	defer cf.Unsubscribe(ws)
 
 	for {
 		select {
@@ -189,9 +186,7 @@ func (cb *Cycbuf) HttpStream(ws *websocket.Conn) {
 			}
 			_, err = ws.Write(b)
 			if err != nil {
-				cf.Unsubscribe(ws)
-				close(ch)
-				return
+				break
 			}
 		}
 	}

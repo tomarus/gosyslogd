@@ -22,9 +22,15 @@ var rdb redis.Conn
 var sys *syslogd.Server
 var cyc *cycbuf.Cycbuf
 
+type psqlmsg struct {
+	md5     string
+	content string
+}
+
 type psqldb struct {
-	db    *sql.DB
-	table string
+	db     *sql.DB
+	table  string
+	msgbus chan *psqlmsg
 }
 
 var psql psqldb
@@ -37,6 +43,9 @@ func (p *psqldb) Dial(connstr string) (err error) {
 
 	p.tables()
 	go p.changeTables()
+
+	p.msgbus = make(chan *psqlmsg, 1024*1024)
+	go p.msgReader()
 	return nil
 }
 
@@ -74,9 +83,21 @@ func (p *psqldb) tables() {
 	}
 }
 
+func (p *psqldb) msgReader() {
+	for {
+		select {
+		case m := <-p.msgbus:
+			_, err := p.db.Exec(fmt.Sprintf("INSERT INTO %s (epoch, match, msg) VALUES($1,$2,$3)", p.table), time.Now().Unix(), m.md5, m.content)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+}
+
 func (p *psqldb) AddUnhandled(md5, content string) (err error) {
-	_, err = p.db.Exec(fmt.Sprintf("INSERT INTO %s (epoch, match, msg) VALUES($1,$2,$3)", p.table), time.Now().Unix(), md5, content)
-	return err
+	p.msgbus <- &psqlmsg{md5: md5, content: content}
+	return nil
 }
 
 //

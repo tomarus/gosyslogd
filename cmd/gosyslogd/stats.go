@@ -1,10 +1,11 @@
 package main
 
 import (
-	"./config"
 	"expvar"
 	"net"
 	"net/http"
+
+	"github.com/tomarus/gosyslogd/config"
 )
 
 type stats struct {

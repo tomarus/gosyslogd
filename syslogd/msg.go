@@ -3,9 +3,9 @@ package syslogd
 import (
 	"bytes"
 	"fmt"
-	"github.com/moovweb/rubex"
 	"log/syslog"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,15 +20,16 @@ type Message struct {
 	Hostname string
 	Tag      string
 	Pid      int
-	Raw      string
+	Raw      []byte
 }
 
-var sysfmt *rubex.Regexp
+var sysfmt *regexp.Regexp
 var mu sync.Mutex
 var hostname string
 
 func init() {
-	sysfmt = rubex.MustCompile("<([0-9]+)>(.{15}|.{25}) (.*?): (.*)")
+	sysfmt = regexp.MustCompile("<([0-9]+)>(.{15}|.{25}) (.*?): (.*)")
+
 	h, err := os.Hostname()
 	if err != nil {
 		panic(err)
@@ -36,13 +37,13 @@ func init() {
 	hostname = h
 }
 
-func NewMessage(pkt []byte, size int) *Message {
+// NewMessage parses a raw syslog packet and returns a Message struct or nil if unparsable.
+func NewMessage(pkt []byte, size int) (*Message, error) {
 	mu.Lock()
 	res := sysfmt.FindSubmatch(pkt)
 	mu.Unlock()
 	if len(res) != 5 {
-		fmt.Printf("Cant parse: %d %s\n", len(res), string(pkt))
-		return nil
+		return nil, fmt.Errorf("Cant parse: %d %s\n", len(res), string(pkt))
 	}
 
 	msg := new(Message)
@@ -77,15 +78,15 @@ func NewMessage(pkt []byte, size int) *Message {
 	n := bytes.IndexByte(pkt, '>')
 	if n > 0 {
 		if size > 0 {
-			msg.Raw = strings.TrimSpace(string(pkt[n+1 : size]))
+			msg.Raw = bytes.TrimSpace(pkt[n+1 : size])
 		} else {
-			msg.Raw = strings.TrimSpace(string(pkt[n+1:]))
+			msg.Raw = bytes.TrimSpace(pkt[n+1:])
 		}
 	} else {
-		msg.Raw = strings.TrimSpace(string(pkt))
+		msg.Raw = bytes.TrimSpace(pkt)
 	}
 
-	return msg
+	return msg, nil
 }
 
 var severeties = [...]string{
@@ -98,14 +99,17 @@ var facilities = [...]string{
 	"local0", "local1", "local2", "local3", "local4", "local5", "local6", "local7",
 }
 
+// Severity returns the curent severity string from a Message (e.g. "notice")
 func (m *Message) Severity() string {
 	return severeties[m.Priority&7]
 }
 
+// Facility returns the curent facility string from a Message (e.g. "local1")
 func (m *Message) Facility() string {
 	return facilities[m.Priority>>3]
 }
 
+// PriorityString returns the curent severity and facility string from a Message (e.g. "local1.notice")
 func (m *Message) PriorityString() string {
 	return m.Facility() + "." + m.Severity()
 }

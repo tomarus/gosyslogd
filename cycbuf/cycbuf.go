@@ -7,15 +7,15 @@
 package cycbuf
 
 import (
-	"../syslogd"
-	"code.google.com/p/go.net/websocket"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	_ "github.com/lib/pq"
 	"io"
 	"net/http"
 	"strconv"
+
+	"github.com/tomarus/gosyslogd/syslogd"
+	"golang.org/x/net/websocket"
 )
 
 // Store up to cycbuflen messages in a cycfile.
@@ -71,7 +71,7 @@ func (cf *cycfile) Last(max int) []*syslogd.Message {
 	}
 
 	newrange := make([]*syslogd.Message, max)
-	for i,j := len(r)-1, 0; j<max; i, j = i-1, j+1 {
+	for i, j := len(r)-1, 0; j < max; i, j = i-1, j+1 {
 		newrange[j] = r[i]
 	}
 	return newrange

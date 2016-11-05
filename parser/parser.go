@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"crypto/md5"
 	"fmt"
-	"github.com/moovweb/rubex"
 	"io"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -29,7 +29,7 @@ type tagParser struct {
 type logEntries []*Logent
 
 type Logent struct {
-	rex   *rubex.Regexp
+	rex   *regexp.Regexp
 	raw   string
 	count int64
 
@@ -126,7 +126,7 @@ func (p *Parser) newTagParser(fn string) (*tagParser, error) {
 			e.raw = line
 		}
 
-		e.rex, err = rubex.Compile(line)
+		e.rex, err = regexp.Compile(line)
 		if err != nil {
 			return nil, fmt.Errorf("Error on line %d of %s: %v", i, fn, err)
 		}

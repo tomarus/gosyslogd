@@ -1,7 +1,6 @@
 package syslogd
 
 import (
-	"../config"
 	"bufio"
 	"fmt"
 	"os"
@@ -10,6 +9,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/tomarus/gosyslogd/config"
 )
 
 type archfile struct {
@@ -24,7 +25,7 @@ type archive struct {
 	files map[string]*archfile
 }
 
-func NewArchive() *archive {
+func newArchive() *archive {
 	a := new(archive)
 	a.files = make(map[string]*archfile)
 	go a.syncer()
@@ -104,7 +105,7 @@ func (a *archive) write(m *Message) {
 
 func (af *archfile) write(m *Message) {
 	af.mu.Lock()
-	_, err := af.buf.WriteString(m.Raw)
+	_, err := af.buf.Write(m.Raw)
 	if err != nil {
 		panic(err)
 	}

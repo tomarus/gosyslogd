@@ -1,5 +1,8 @@
-all:	*.go
-	go build
+all:
+	go build ./cmd/gosyslogd
+
+test:
+	go test -cover ./...
 
 clean:
-	go clean
+	@rm gosyslogd

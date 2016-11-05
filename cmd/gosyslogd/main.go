@@ -1,20 +1,21 @@
 package main
 
 import (
-	"./config"
-	"./cycbuf"
-	"./parser"
-	"./syslogd"
-	"code.google.com/p/go.net/websocket"
 	"database/sql"
 	"fmt"
-	"github.com/garyburd/redigo/redis"
-	_ "github.com/lib/pq"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/garyburd/redigo/redis"
+	_ "github.com/lib/pq"
+	"github.com/tomarus/gosyslogd/config"
+	"github.com/tomarus/gosyslogd/cycbuf"
+	"github.com/tomarus/gosyslogd/parser"
+	"github.com/tomarus/gosyslogd/syslogd"
+	"golang.org/x/net/websocket"
 )
 
 var parse *parser.Parser
@@ -140,7 +141,7 @@ func main() {
 	http.Handle("/stream", websocket.Handler(cyc.HttpStream))
 
 	// Start syslog server.
-	sys = syslogd.NewServer()
+	sys = syslogd.NewServer(syslogd.Options{})
 	go sysloop()
 
 	// Wait for ctrl-c
@@ -174,16 +175,16 @@ func sysloop() {
 			continue
 		}
 
-		if logent, x := parse.Check(m.Tag, m.Raw); x {
+		if logent, x := parse.Check(m.Tag, string(m.Raw)); x {
 			// Mached a regex entry.
 			if logent.Important > 1 {
-				psql.AddUnhandled(logent.Md5, m.Raw)
+				psql.AddUnhandled(logent.Md5, string(m.Raw))
 				rdb.Do("PUBLISH", "critical", m.Raw)
 			}
 			cyc.Add(logent.Md5, m)
 		} else {
 			// No match found.
-			psql.AddUnhandled("00000000000000000000000000000000", m.Raw)
+			psql.AddUnhandled("00000000000000000000000000000000", string(m.Raw))
 			cyc.Add("00000000000000000000000000000000", m)
 			rdb.Do("PUBLISH", "logging", m.Raw)
 		}

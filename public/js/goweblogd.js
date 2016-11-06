@@ -125,14 +125,14 @@ LogTail.prototype = {
     },
 
     limitTable: function() {
-        if ( this.obj.find('tbody').find("tr").length > 10 ) {
+        if ( this.obj.find('tbody').find("tr").length > 20 ) {
             this.obj.find('tbody').find("tr").last().remove();
         }
     },
 
     Refill: function() {
         var obj = this.obj;
-        $.getJSON('/log?md5='+this.md5+'&max=10', function(data) {
+        $.getJSON('/log?md5='+this.md5+'&max=20', function(data) {
             if (!data) {
                 console.log("No data received.");
                 return;

@@ -171,11 +171,9 @@ func sysloop() {
 
 		// Parser & matching stuff
 
-		fmt.Println("jawel")
 		if !parse.HasTag(m.Tag) {
 			continue
 		}
-		fmt.Println("hoi")
 
 		if logent, x := parse.Check(m.Tag, string(m.Raw)); x {
 			// Mached a regex entry.

@@ -8,7 +8,10 @@ as the syslog tag. Only tags which have a regex list are monitored.
 Unmatched messages are published to a Redis channel "logging" and stored
 in a PostgreSQL database in a table called "log_YYYYMM".
 
-Matched messages are stored in a Mongo DB capped collection. The name
-of the collection is a md5 sum of the regular expressions. Matched
-messages which are marked as important are published to Redis
+Matched messages which are marked as important are published to Redis
 channel "critical".
+
+There is a little web interface to monitor incoming syslog messages.
+
+This was written a few years ago back in 2014 and is old code mostly.
+

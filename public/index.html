@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>GOSYSLOGD</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
+<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/rollups/md5.js"></script>
+<script type="text/javascript" src="js/jquery.tablesorter.min.js"></script>
+<script type="text/javascript" src="js/jquery-ui-1.10.3.custom.min.js"></script>
+<script type="text/javascript" src="js/goweblogd.js"></script>
+<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css">
+<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-theme.min.css">
+<style type="text/css">
+body {
+    padding-top: 70px;
+    background-color: #f7f7f7;
+}
+td {
+    vertical-align: top;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+<div class="navbar navbar-default navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand hidden-sm hidden-md" style="color:#aaa" href="#">GOSYSLOGD</a>
+    </div>
+
+    <div class="navbar-collapse collapse navbar-ex1-collapse" style="padding-right: 0px">
+        <ul class="nav navbar-nav">
+            <li name='home' class=''><a href='/'>Main</a></li>
+            <li class="dropdown">
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown" data-target="#">Droppie <b class="caret"></b></a>
+                <ul class="dropdown-menu">
+                    <li><a href="/1">1</a></li>
+                    <li><a href="/2">2</a></li>
+                    <li><a href="/3">3</a></li>
+                    <li><a href="/4">4</a></li>
+                </ul>
+            </li>
+        </ul>
+
+<!--
+        <div class="nav navbar-nav navbar-right col-xs-2 hidden-xs hidden-sm hidden-md">
+            <form class="navbar-form navbar-right pull-right" role="search" id="searchform">
+                <div class="input-group input-group-sm">
+                    <input type="text" class="form-control" placeholder="Search" id="searchbox" value=""/>
+                    <span class="input-group-btn">
+                        <button class="btn btn-default" type="submit"><i class="glyphicon glyphicon-search"></i></button>
+                    </span>
+                </div>
+            </form>
+        </div>
+-->
+
+    </div>
+</div> <!-- navbar -->
+</div> <!-- container -->
+
+<div class="panel panel-default">
+<div class="panel-heading">
+    <b>Unhandled Messages</b>
+    <span class="pull-right">
+	<label for="tailopt">Tail</label>
+	<input type="checkbox" name="tailopt" checked="checked" id="tailopt"></input>
+    </span>
+</div>
+    <table class="table table-condensed table-striped" id="unhandled">
+    <thead><tr><th>Time</th><th>Hostname</th><th>Tag</th><th>Message</th></tr></thead>
+    <tbody></tbody>
+    </table>
+</div>
+
+<div class='container'>
+
+<div id='content'>
+
+<table class="table">
+<tbody> <tr>
+<td> <table class="table-bordered table-condensed tablesorter" id="tagtable">
+		<thead> <tr> <th>Tag</th> <th>Count</th> </tr> </thead>
+		<tbody> </tbody>
+	</table>
+</td>
+<td> <table class="table-bordered table-condensed tablesorter" id="pritable">
+		<thead> <tr> <th>Priority</th> <th>Count</th> </tr> </thead>
+		<tbody> </tbody>
+	</table>
+</td>
+<td> <table class="table-bordered table-condensed tablesorter" id="hosttable">
+		<thead> <tr> <th>Hostname</th> <th>Count</th> </tr> </thead>
+		<tbody> </tbody>
+	</table>
+</td>
+</tr> </tbody>
+</table>
+
+</div> <!-- content -->
+</div> <!-- container -->
+
+</body>
+<script type="text/javascript">
+WebLogd.Run();
+</script>
+</html>

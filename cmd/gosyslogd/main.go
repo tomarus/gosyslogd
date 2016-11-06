@@ -73,7 +73,7 @@ func (p *psqldb) tables() {
 	tn := "log_" + time.Now().Format("200601")
 
 	err := p.db.QueryRow("SELECT relname FROM pg_class WHERE relname= $1", tn).Scan(&p.table)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		panic(err)
 	}
 
@@ -141,7 +141,7 @@ func main() {
 	http.Handle("/stream", websocket.Handler(cyc.HttpStream))
 
 	// Start syslog server.
-	sys = syslogd.NewServer(syslogd.Options{})
+	sys = syslogd.NewServer(syslogd.Options{SockAddr: config.C.SockAddr, UnixPath: config.C.UnixPath})
 	go sysloop()
 
 	// Wait for ctrl-c
@@ -171,9 +171,11 @@ func sysloop() {
 
 		// Parser & matching stuff
 
+		fmt.Println("jawel")
 		if !parse.HasTag(m.Tag) {
 			continue
 		}
+		fmt.Println("hoi")
 
 		if logent, x := parse.Check(m.Tag, string(m.Raw)); x {
 			// Mached a regex entry.

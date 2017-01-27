@@ -10,9 +10,9 @@ import (
 // Path to JSON config files, first one found is used.
 var configFiles = [...]string{
 	"/etc/goweblogd.conf",
-	"/etc/gosyslogd/goweblogd.conf",
+	"/etc/goweblogd/goweblogd.conf",
 	"/usr/local/etc/goweblogd.conf",
-	"/usr/local/etc/gosyslogd/goweblogd.conf",
+	"/usr/local/etc/goweblogd/goweblogd.conf",
 	"./goweblogd.conf",
 	"./etc/goweblogd.conf"}
 

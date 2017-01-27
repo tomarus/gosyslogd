@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/tomarus/gosyslogd/syslogd"
 	"golang.org/x/net/websocket"
@@ -22,15 +23,19 @@ import (
 const cycbuflen = 1024
 
 type cycfile struct {
-	msgs [cycbuflen]*syslogd.Message
-	ptr  int
-	loop bool
-	subs map[*websocket.Conn]chan *syslogd.Message
+	msgs    [cycbuflen]*syslogd.Message
+	ptr     int
+	loop    bool
+	subs    map[*websocket.Conn]chan *syslogd.Message
+	msglock sync.RWMutex
+	sublock sync.RWMutex
 }
 
 type Cycbuf struct {
-	files map[string]*cycfile
-	sums  map[string]string
+	files    map[string]*cycfile
+	sums     map[string]string
+	filelock sync.RWMutex
+	sumlock  sync.RWMutex
 }
 
 func (cf *cycfile) Init() {
@@ -40,6 +45,8 @@ func (cf *cycfile) Init() {
 }
 
 func (cf *cycfile) AddMsg(m *syslogd.Message) {
+	cf.msglock.Lock()
+	defer cf.msglock.Unlock()
 	cf.msgs[cf.ptr] = m
 	cf.ptr++
 	if cf.ptr > cycbuflen-1 {
@@ -51,6 +58,8 @@ func (cf *cycfile) AddMsg(m *syslogd.Message) {
 
 // Range returns a full range slice of X syslogd messages.
 func (cf *cycfile) Range() []*syslogd.Message {
+	cf.msglock.RLock()
+	defer cf.msglock.RUnlock()
 	s1 := cf.msgs[0:cf.ptr]
 	if cf.loop {
 		s2 := cf.msgs[cf.ptr+1 : len(cf.msgs)]
@@ -78,17 +87,23 @@ func (cf *cycfile) Last(max int) []*syslogd.Message {
 }
 
 func (cf *cycfile) publish(m *syslogd.Message) {
+	cf.sublock.RLock()
+	defer cf.sublock.RUnlock()
 	for _, ch := range cf.subs {
 		ch <- m
 	}
 }
 
 func (cf *cycfile) Subscribe(ws *websocket.Conn, mchan chan *syslogd.Message) error {
+	cf.sublock.Lock()
+	defer cf.sublock.Unlock()
 	cf.subs[ws] = mchan
 	return nil
 }
 
 func (cf *cycfile) Unsubscribe(ws *websocket.Conn) error {
+	cf.sublock.Lock()
+	defer cf.sublock.Unlock()
 	delete(cf.subs, ws)
 	return nil
 }
@@ -101,6 +116,9 @@ func New() *Cycbuf {
 }
 
 func (cb *Cycbuf) AddString(str string, m *syslogd.Message) {
+	cb.sumlock.Lock()
+	defer cb.sumlock.Unlock()
+
 	sum, x := cb.sums[str]
 	if !x {
 		h := md5.New()
@@ -108,6 +126,9 @@ func (cb *Cycbuf) AddString(str string, m *syslogd.Message) {
 		cb.sums[str] = fmt.Sprintf("%x", h.Sum(nil))
 		sum = cb.sums[str]
 	}
+
+	cb.filelock.Lock()
+	defer cb.filelock.Unlock()
 
 	cf, x := cb.files[sum]
 	if !x {
@@ -119,6 +140,8 @@ func (cb *Cycbuf) AddString(str string, m *syslogd.Message) {
 }
 
 func (cb *Cycbuf) Add(sum string, m *syslogd.Message) {
+	cb.filelock.Lock()
+	defer cb.filelock.Unlock()
 	cf, x := cb.files[sum]
 	if !x {
 		cb.files[sum] = new(cycfile)
@@ -128,16 +151,19 @@ func (cb *Cycbuf) Add(sum string, m *syslogd.Message) {
 	cf.AddMsg(m)
 }
 
-// Call on program exit or signal.
+// Dump is called on program exit or signal.
 func (cb *Cycbuf) Dump() {
 }
 
-// Call on program load.
+// Restore is callled on program load.
 func (cb *Cycbuf) Restore() {
 }
 
 // HttpLog returns the last "max" messages of "md5" in json format.
 func (cb *Cycbuf) HttpLog(w http.ResponseWriter, r *http.Request) {
+	cb.filelock.RLock()
+	defer cb.filelock.RUnlock()
+
 	sum := r.FormValue("md5")
 	max := r.FormValue("max")
 
@@ -147,7 +173,7 @@ func (cb *Cycbuf) HttpLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var imax int64 = 0
+	var imax int64
 	if max != "" {
 		imax, _ = strconv.ParseInt(max, 10, 64)
 	}
@@ -166,7 +192,10 @@ func (cb *Cycbuf) HttpStream(ws *websocket.Conn) {
 	v := c.Location.Query()
 	md5 := v.Get("md5")
 
+	cb.filelock.RLock()
 	cf, x := cb.files[md5]
+	cb.filelock.RUnlock()
+
 	if !x {
 		fmt.Fprintf(ws, "No such sum %s", md5)
 		return

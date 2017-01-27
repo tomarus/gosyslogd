@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -21,8 +22,12 @@ var sys *syslogd.Server
 var cyc *cycbuf.Cycbuf
 var stats *sysstats
 
+var verbose = flag.Bool("v", false, "verbose")
+
 func main() {
 	var err error
+
+	flag.Parse()
 
 	// Load config.
 	err = loadConfig()
@@ -68,7 +73,7 @@ func main() {
 	http.Handle("/stream", websocket.Handler(cyc.HttpStream))
 
 	// Start syslog server.
-	sys = syslogd.NewServer(syslogd.Options{SockAddr: cfg.SockAddr, UnixPath: cfg.UnixPath, Archive: cfg.Archive})
+	sys = syslogd.NewServer(syslogd.Options{SockAddr: cfg.SockAddr, UnixPath: cfg.UnixPath, LogDir: cfg.LogDir})
 	go sysloop()
 
 	// Wait for ctrl-c
@@ -118,6 +123,11 @@ func sysloop() {
 			}
 			cyc.Add("00000000000000000000000000000000", m)
 			rdb.Do("PUBLISH", "logging", m.Raw)
+
+			if *verbose {
+				fmt.Println(string(m.Raw))
+			}
 		}
+
 	}
 }

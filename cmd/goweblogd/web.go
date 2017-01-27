@@ -42,7 +42,7 @@ func hh(fn http.HandlerFunc) http.HandlerFunc {
 }
 
 func static(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "public"+r.URL.Path)
+	http.ServeFile(w, r, "/srv/goweblogd"+r.URL.Path)
 }
 
 // XXX support multiple syslogds

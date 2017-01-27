@@ -39,8 +39,8 @@ type Options struct {
 	// Defaults to 128k
 	BufferSize int
 
-	// Archive defines the path where to store logfiles. Leave empty to not write logfiles.
-	Archive string
+	// LogDir defines the path where to store logfiles. Leave empty to not write logfiles.
+	LogDir string
 }
 
 // Server contains internal data for syslog server processes.
@@ -208,7 +208,7 @@ func NewServer(opts Options) *Server {
 
 	s.bus = make(chan *Message, opts.BufferSize)
 	s.stop = make(chan bool)
-	s.arch = newArchive(opts.Archive)
+	s.arch = newArchive(opts.LogDir)
 
 	err := s.listenUnix()
 	if err != nil {

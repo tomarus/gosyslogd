@@ -25,7 +25,6 @@ type config struct {
 	Redis    string `json:"redis"`
 	Postgres string `json:"postgres"`
 	HTTP     string `json:"http"`
-	Archive  string `json:"arhive"`
 }
 
 var cfg config

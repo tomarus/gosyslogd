@@ -9,8 +9,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/tomarus/gosyslogd/config"
 )
 
 type archfile struct {
@@ -23,16 +21,19 @@ type archfile struct {
 
 type archive struct {
 	files map[string]*archfile
+	path  string
 }
 
-func newArchive() *archive {
-	a := new(archive)
-	a.files = make(map[string]*archfile)
-	go a.syncer()
+func newArchive(path string) *archive {
+	a := &archive{files: map[string]*archfile{}, path: path}
 
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGHUP)
-	go a.reloader(sig)
+	if path != "" {
+		go a.syncer()
+
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, syscall.SIGHUP)
+		go a.reloader(sig)
+	}
 	return a
 }
 
@@ -86,10 +87,13 @@ func (a *archive) syncer() {
 }
 
 func (a *archive) write(m *Message) {
+	if a.path == "" {
+		return
+	}
 	// XXX make configurable.
 	//fn := fmt.Sprintf("%s/%s.%s.log", config.C.LogDir, m.Facility(), m.Severity())
 	//fn := fmt.Sprintf("%s/%04d/%02d/%02d/%s/%s.%s.log", config.C.LogDir, time.Now().Year(), time.Now().Month(), time.Now().Day(), m.Hostname, m.Facility(), m.Severity())
-	fn := fmt.Sprintf("%s/%04d/%02d/%02d/%s.log", config.C.LogDir, time.Now().Year(), time.Now().Month(), time.Now().Day(), m.Hostname)
+	fn := fmt.Sprintf("%s/%04d/%02d/%02d/%s.log", a.path, time.Now().Year(), time.Now().Month(), time.Now().Day(), m.Hostname)
 
 	if _, x := a.files[fn]; !x {
 		os.MkdirAll(path.Dir(fn), 0755)

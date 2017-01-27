@@ -38,6 +38,9 @@ type Options struct {
 	// BufferSize contains the maximum number of messages queued before we block.
 	// Defaults to 128k
 	BufferSize int
+
+	// Archive defines the path where to store logfiles. Leave empty to not write logfiles.
+	Archive string
 }
 
 // Server contains internal data for syslog server processes.
@@ -205,7 +208,7 @@ func NewServer(opts Options) *Server {
 
 	s.bus = make(chan *Message, opts.BufferSize)
 	s.stop = make(chan bool)
-	s.arch = newArchive()
+	s.arch = newArchive(opts.Archive)
 
 	err := s.listenUnix()
 	if err != nil {

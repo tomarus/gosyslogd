@@ -1,4 +1,4 @@
-package config
+package main
 
 import (
 	"bytes"
@@ -17,17 +17,18 @@ var configFiles = [...]string{
 	"./etc/gosyslogd.conf"}
 
 type config struct {
-	File      string
-	UnixPath  string `json:"unixpath"`
-	SockAddr  string `json:"sockaddr"`
-	RulesDir  string `json:"rules"`
-	LogDir    string `json:"logdir"`
-	Redis     string `json:"redis"`
-	Postgres  string `json:"postgres"`
-	HTTP      string `json:"http"`
+	File     string
+	UnixPath string `json:"unixpath"`
+	SockAddr string `json:"sockaddr"`
+	RulesDir string `json:"rules"`
+	LogDir   string `json:"logdir"`
+	Redis    string `json:"redis"`
+	Postgres string `json:"postgres"`
+	HTTP     string `json:"http"`
+	Archive  string `json:"arhive"`
 }
 
-var C config
+var cfg config
 
 func openConfig() (f *os.File, err error) {
 	for _, cf := range configFiles {
@@ -39,14 +40,14 @@ func openConfig() (f *os.File, err error) {
 	return
 }
 
-func NewConfig() error {
+func loadConfig() error {
 	f, err := openConfig()
 	if err != nil {
 		return errors.New("No configuration file was found.")
 	}
 	defer f.Close()
 
-	C.File = f.Name()
+	cfg.File = f.Name()
 
 	b := new(bytes.Buffer)
 	_, err = b.ReadFrom(f)
@@ -54,7 +55,7 @@ func NewConfig() error {
 		return err
 	}
 
-	err = json.Unmarshal(b.Bytes(), &C)
+	err = json.Unmarshal(b.Bytes(), &cfg)
 	if err != nil {
 		return err
 	}

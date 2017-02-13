@@ -112,7 +112,7 @@ LogTail.prototype = {
                 console.log("Unhandled websocket message: "+event.data)
                 return;
             }
-            self.obj.find('tbody').prepend('<tr><td>'+msg.Received+'</td><td>'+msg.Hostname+'</td><td>'+msg.Tag+'</td><td>'+atob(msg.Raw)+'</td></tr>');
+            self.obj.find('tbody').prepend('<tr><td>'+atob(msg.Raw)+'</td></tr>');
             self.obj.find('tbody tr:first td').effect("highlight", {'color': '#ff7777'}, 3000);
             self.limitTable();
         };
@@ -140,7 +140,7 @@ LogTail.prototype = {
 
             obj.find("tbody").find("tr").remove();
             $.each(data, function(key, val) {
-                h = "<tr><td>"+val.Received+"</td><td>"+val.Hostname+"</td><td>"+val.Tag+"</td><td>"+atob(val.Raw)+"</td></tr>";
+                h = "<tr><td>"+atob(val.Raw)+"</td></tr>";
                 obj.find("tbody:last").append(h);
             });
         });

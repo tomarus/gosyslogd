@@ -14,6 +14,7 @@ package syslogd
 
 import (
 	"bufio"
+	"fmt"
 	"net"
 	"os"
 	"sync"
@@ -166,7 +167,8 @@ func (s *Server) receiveTCP(con net.Conn) {
 func (s *Server) processBuf(b []byte, n int) {
 	msg, err := NewMessage(b, n)
 	if err != nil {
-		panic(err)
+		fmt.Printf("%v\n", err)
+		return
 	}
 	if msg != nil {
 		s.bus <- msg

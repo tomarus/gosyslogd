@@ -22,7 +22,10 @@ var sys *syslogd.Server
 var cyc *cycbuf.Cycbuf
 var stats *sysstats
 
-var verbose = flag.Bool("v", false, "verbose")
+var verbose = flag.Bool("v", false, "Log all unwanted messages to stdout.")
+var tail = flag.Bool("tail", false, "Tail -f the unwanted log connecting to a running gosyslogd.")
+
+const nullmd5 = "00000000000000000000000000000000"
 
 func main() {
 	var err error
@@ -35,14 +38,21 @@ func main() {
 		panic(err)
 	}
 
-	// Load logsurfer filtering rules.
-	parse, err = parser.New(cfg.RulesDir)
+	// Connect to Redis.
+	rdb, err = redis.Dial("tcp", cfg.Redis)
 	if err != nil {
 		panic(err)
 	}
 
-	// Connect to Redis.
-	rdb, err = redis.Dial("tcp", cfg.Redis)
+	if *tail {
+		if err := tailf(rdb); err != nil {
+			panic(err)
+		}
+		return
+	}
+
+	// Load logsurfer filtering rules.
+	parse, err = parser.New(cfg.RulesDir)
 	if err != nil {
 		panic(err)
 	}
@@ -84,6 +94,21 @@ func main() {
 	sys.Close()
 }
 
+func tailf(c redis.Conn) error {
+	psc := redis.PubSubConn{Conn: c}
+	psc.Subscribe("logging")
+	for {
+		switch v := psc.Receive().(type) {
+		case redis.Message:
+			fmt.Printf("%s\n", v.Data)
+		case redis.Subscription:
+			// nothing
+		case error:
+			return v
+		}
+	}
+}
+
 func sysloop() {
 	for {
 		m := sys.Next()
@@ -119,9 +144,9 @@ func sysloop() {
 		} else {
 			// No match found.
 			if cfg.Postgres != "" {
-				psql.AddUnhandled("00000000000000000000000000000000", string(m.Raw))
+				psql.AddUnhandled(nullmd5, string(m.Raw))
 			}
-			cyc.Add("00000000000000000000000000000000", m)
+			cyc.Add(nullmd5, m)
 			rdb.Do("PUBLISH", "logging", m.Raw)
 
 			if *verbose {

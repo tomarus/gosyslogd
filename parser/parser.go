@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// Parser handles parsing of regexps to raw syslog messages.
 type Parser struct {
 	tagmap map[string]*tagParser
 }
@@ -28,6 +29,8 @@ type tagParser struct {
 
 type logEntries []*Logent
 
+// Logent defines a single unique log entry. A unique Logent is defined as
+// a tag, a hostname, a priority name or a regexp.
 type Logent struct {
 	rex   *regexp.Regexp
 	raw   string
@@ -159,7 +162,7 @@ func (p *Parser) Check(tag, msg string) (*Logent, bool) {
 	tp, x := p.tagmap[tag]
 	if !x {
 		panic("Should be available.")
-		return nil, false
+		// return nil, false
 	}
 
 	tp.totchecks++
